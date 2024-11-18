@@ -1,8 +1,11 @@
 var express = require('express');
 var app = express();
 var port = '3000';
+var cors = require('cors');
 const pgp = require('pg-promise')();
 const db = pgp('postgresql://formqtt_user:JczzxkQ8NIHwCfWesX0Kb1a3OkwiRuaF@dpg-csrd9gl6l47c73fcrehg-a.oregon-postgres.render.com/formqtt?ssl=true');
+
+app.use(cors());
 
 app.get('/get-data', async (req, res) => {
     const minutesDiff = req.query.datediff;
@@ -16,18 +19,16 @@ app.get('/get-data', async (req, res) => {
         startDate.setMinutes(startDate.getMinutes() + utcTime.getTimezoneOffset());
         startDate.setMinutes(startDate.getMinutes() - (minutesDiff));
 
-        const result = await db.any('SELECT * FROM mqtt_messages WHERE timestamp BETWEEN $1 AND $2 AND topic = $3', [startDate, utcTime, topic]);
-        console.log(result);
+        const result = await db.any('SELECT timestamp AS time, message AS value FROM mqtt_messages WHERE timestamp BETWEEN $1 AND $2 AND topic = $3', [startDate, utcTime, topic]);
 
         const modifiedDateResult = result.map(row => {
-            const zonedDateTime = new Date(row.timestamp);
+            const zonedDateTime = new Date(row.time);
             zonedDateTime.setMinutes(zonedDateTime.getMinutes() - zoneDiff);
             return {
                 ...row, 
-                timestamp: zonedDateTime.toISOString(),  
+                time: zonedDateTime.toISOString(),  
             }
         });
-
         res.json(modifiedDateResult);
     } catch (err) {
         console.error(err);
